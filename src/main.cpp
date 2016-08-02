@@ -5,6 +5,7 @@
 * Aplica��o de Heur�stica Construtiva
 * Hub inicializado com o mais proximo de todos atraves de ordenamento de matriz
 */
+#define CYCLE_HUB
 
 #include <iostream>
 #include <iomanip>
@@ -17,93 +18,15 @@
 #include <stdio.h>
 #include <algorithm>//lower bound
 #include <cfloat>
+#include "structs.h"
+#include "tsp.h"
 #define INF DBL_MAX
 using namespace std;
 
 ofstream arquivoSaida;
 
-
-
-//estrutura utilizada para armazenar, distancia, demanda e penalidades
-struct celula{
-	int id; //identifica o numero do n�
-	double valor; //valor da celula
-};
-
-struct no{
-	int id;//id do respectivo no
-	int hub;//id do hub no qual est� alocado
-};
-
-//estrutura de uma instancia a ser carregada
-struct instancia{
-	string arquivo; //caminho do arquivo de entrada
-	double FO_otimo; //valor da solu��o OTIMA para a determinada instancia
-};
-
-struct solucao{
-	vector <int> hubs; //contem n�s que s�o hubs
-	vector <int> hubs_bin;
-	vector <no> alocacao; //contem lista ordenada de n�s n�o concentradores e suas aloca��es
-};
-
-//variaveis problema (Leitura de arquivo e parametros de regulagem)
-struct DATA{
-
-    //marcadores de tempo
-    clock_t inicio;
-    clock_t final;
-    double tempo;
-
-    double alvo;
-
-	int nos; //quantidade de n�s da instancia trabalhada
-
-	double alpha;
-
-	double peso_cf; //peso da penalidade do custo fixo de instala�ao
-	double peso_od; //peso da penalidade do O_i e D_i
-	double peso_dist; //peso da penalidade da distancia
-
-	int numFixoHubs;//N�mero fixo de hubs a ser instalado
-
-	vector < vector<double> > cordenadas; //cordenadas dos n�s
-
-	vector < vector<celula> > distancia; //matriz com distancia entre os n�s
-	vector < vector<celula> > distanciaOrdenada; //vetores mais proximos do hub identificado pela linha
-
-	vector < vector<double> > demanda; //matriz de demanda entre os n�s
-	vector < vector<celula> > demandaOrigemOrdenada;  //matriz demanda com origem em i (W_ij)
-	vector < vector<celula> > demandaDestinoOrdenada; //matriz demanda com com destino em i (W_ji)
-	vector < celula > demandaTotalOrdenada;
-
-	vector < int > pib;
-	vector < int > populacao;
-	vector < string > municipios;
-
-	vector < int > ordemPib;
-
-	vector <double> O;
-	vector <double> D;
-	vector <celula> O_ordenado;
-	vector <celula> D_ordenado;
-
-	vector < vector<celula> > demandaOD; //soma de demandas OD
-
-	vector < double > custoIntalacao; //custo fixo de instala��o de cada hub
-	vector < celula > custoInstalacaoOrdenado;
-
-	vector < double > capacidade;
-	vector < double > outrosValores;
-
-	vector < celula > hubsPromissores; //armazena penalidades e os nos mais promissores a se tornar hub
-    vector < celula > hubsPromissoresGrasp;
-
-	//matriz binarias
-	vector < vector<int> > ligacao; //z liga��es matriz inteira
-
-	float T;
-};
+//Trata operacoes relacionadas ao TSP
+TSP * tsp;
 
 //func�es e procedimentos
 void resize(DATA * dados);
@@ -170,17 +93,11 @@ void buscaLocal_Shift(DATA * dados, solucao * s, solucao * s_star, double * FO_s
 void buscaLocal_Shift_P(DATA * dados, solucao * s, solucao * s_star, double * FO_star);
 
 void buscaLocal_DeslocamentoAlocacao(DATA * dados, solucao * s, solucao * s_star, double * FO_star);
-
 void buscaLocal_TrocaFuncao(DATA * dados, solucao * s, solucao * s_star, double * FO_star);
-
 void buscaLocal_TrocaFuncao_(DATA * dados, solucao * s, solucao * s_star, double * FO_star);
-
 void buscaLocal_HubPromissor_(DATA * dados, solucao * s, solucao * s_star, double * FO_star);
-
 void buscaLocal_AdicionaHub_(DATA * dados, solucao * s, solucao * s_star, double * FO_star);
-
 void buscaLocal_RemoveHub(DATA * dados, solucao * s, solucao * s_star, double * FO_star);
-
 void buscaLocal_RemoveHub_(DATA * dados, solucao * s, solucao * s_star, double * FO_star);
 
 void cicloBuscas(DATA * dados, solucao * s);
@@ -194,6 +111,14 @@ void VNS_TROCA(DATA * dados, solucao * s, solucao * s_star, double * FO_star);
 void pertubar_JucaoSolucoes(DATA * dados, solucao * s);
 
 int main(int argc, char* argv[]){
+
+    #ifdef CYCLE_HUB
+        cout<<"Cycle Hub Location Problem - Single Allocation"<<endl;
+    #else
+        cout<<"Hub Location Problem - Single Allocation"<<endl;
+    #endif // CYCLE_HUB
+
+
     srand((unsigned)time(0));
 
     vector <instancia> * instancias = new vector <instancia>(); // vetor com endere�o e FO �timo das instancias
@@ -252,6 +177,7 @@ void processarInstancias(vector < instancia > * instancias){
 
         //leitura de arquivo da instancia i
         lerArquivo(dados, arquivo);
+        tsp = new TSP( &dados->distancia );
 
         //definindo pesos para pontua��o no ordenamento dos hubs promissores
         dados->peso_cf = dados->nos;
@@ -320,6 +246,7 @@ void processarInstancias(vector < instancia > * instancias){
         //salvando resultado em arquivo de saida
         cout<<"3 - Salvando resultado\n"<<endl;
         salvarResultado(dados,FO,s1);
+        delete tsp;
     }
     delete FO_star;
     delete s_star;
@@ -1189,8 +1116,7 @@ double Calcula_FO(DATA * dados, solucao *s) {
 	for (int i = 0; i <s->hubs.size(); i++){
 		FO += dados->custoIntalacao[s->hubs[i]]; // total custo fixo de instala��o
 	}
-//    cout<<"T "<<dados->T;
-//    cin.ignore();
+
 	for (int j = 0; j<s->alocacao.size(); j++){
 		//custo entre n� e seu hub
 		FO = FO + dados->distancia[s->alocacao[j].id][s->alocacao[j].hub].valor
@@ -1201,13 +1127,21 @@ double Calcula_FO(DATA * dados, solucao *s) {
 					//FO *= 100;
 				//}
 
-		//custo entre os hubs
-		for (int w = j + 1; w<s->alocacao.size(); w++){
-			FO = FO + dados->demanda[s->alocacao[j].id][s->alocacao[w].id] * dados->alpha *
-				dados->distancia[s->alocacao[j].hub][s->alocacao[w].hub].valor +
-				dados->demanda[s->alocacao[w].id][s->alocacao[j].id] * dados->alpha *
-				dados->distancia[s->alocacao[w].hub][s->alocacao[j].hub].valor;
-		}
+        #ifdef CYCLE_HUB
+            for (int w = j + 1; w<s->alocacao.size(); w++){
+                FO = FO + dados->demanda[s->alocacao[j].id][s->alocacao[w].id] * dados->alpha *
+                    dados->distancia[s->alocacao[j].hub][s->alocacao[w].hub].valor +
+                    dados->demanda[s->alocacao[w].id][s->alocacao[j].id] * dados->alpha *
+                    tsp->getSubTourDistance(&s->hubs, s->alocacao[w].hub, s->alocacao[j].hub);//Caminho no sentido horário entre Nós
+            }
+		#else//custo entre os hubs (Hub Location Problem)
+            for (int w = j + 1; w<s->alocacao.size(); w++){
+                FO = FO + dados->demanda[s->alocacao[j].id][s->alocacao[w].id] * dados->alpha *
+                    dados->distancia[s->alocacao[j].hub][s->alocacao[w].hub].valor +
+                    dados->demanda[s->alocacao[w].id][s->alocacao[j].id] * dados->alpha *
+                    dados->distancia[s->alocacao[w].hub][s->alocacao[j].hub].valor; //Distância direta entre os dois HUBS
+            }
+		#endif // CYCLE_HUB
 	}
 	return FO;
 
