@@ -1635,11 +1635,15 @@ void addHub(int no, solucao * s){
         s->hubs.push_back(no);
         s->hubs_bin[no] = 1;
         s->alocacao[no].hub = no;
+        #ifdef CYCLE_HUB
+        if( s->hubs.size() > 3 ){
+            tsp->solve( &(s->hubs) );
+        }
+        #endif // CYCLE_HUB
     }else{
         cout<<"Erro: Tentou adicionar concentrador repetido."<<endl;
-        system("PAUSE");
+        exit (EXIT_FAILURE);
 	}
-
 }
 
 void removeHub(int no, solucao * s){
@@ -1651,9 +1655,14 @@ void removeHub(int no, solucao * s){
 				break;
 			}
 		}
+		#ifdef CYCLE_HUB
+        if( s->hubs.size() > 3 ){
+            tsp->solve( &(s->hubs) );
+        }
+        #endif // CYCLE_HUB
 	}else{
         cout<<"Erro: Tentou remover no concentrador nao configurado."<<endl;
-        system("PAUSE");
+        exit (EXIT_FAILURE);
 	}
 }
 
@@ -1678,7 +1687,7 @@ void trocarAlocacao(int hub, int no, solucao * s){
         }
     }else{
         cout<<"Erro: Troca de alocacao nao sendo concentrador."<<endl;
-        system("PAUSE");
+        exit (EXIT_FAILURE);
     }
 }
 

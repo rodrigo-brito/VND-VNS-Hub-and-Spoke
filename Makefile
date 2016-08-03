@@ -7,4 +7,4 @@ all:
 		$(CXX) src/tsp.cpp src/main.cpp -o bin/main $(LIBFLAGS) $(CPPFLAGS)
 		@echo "\n--\nCompilação finalizada...\ndigite 'make run' para executar\n--"
 run:
-		./bin/main
+		$(CXX) src/tsp.cpp src/main.cpp -o bin/main $(LIBFLAGS) $(CPPFLAGS) && ./bin/main

@@ -16,44 +16,67 @@ void TSP::solve( vector<int> * tour ) {
         int semente = rand();
         double szeit, optval, *mybnd, *mytimebound;
         int ncount, success, foundtour, hit_timebound = 0;
+        int *elist = (int *) NULL;
+        int *elen = (int *) NULL;
         int *in_tour = (int *) NULL;
         int *out_tour = (int *) NULL;
         CCrandstate rstate;
         char *probname = (char *) NULL;
+        CCdatagroup dat;
+
+        CCutil_init_datagroup (&dat);
+
+        static int seed = 0;
+        seed = (int) CCutil_real_zeit ();
+        CCutil_sprand (seed, &rstate);
+
         static int run_silently = 1;
-        CCutil_sprand(semente, &rstate);
+
         mybnd = (double *) NULL;
         mytimebound = (double *) NULL;
         ncount = tour->size();
         int ecount = (ncount * (ncount - 1)) / 2; //Total de arestas distintas
-        int *elist = new int[ecount * 2];
-        int *elen = new int[ecount];
+        elist = new int[ecount * 2];//ACEITA APENAS INT
+        elen = new int[ecount];
         int edge = 0;
         int edge_peso = 0;
         for (int kk = 0; kk < tour->size(); kk++) { //Percorre todas as combinações de linhas
             for (int m = kk + 1; m < tour->size(); m++) { //Por colunas
                 if (kk != m) { //Desconsidera a diagonal
-                    elist[edge] = tour->at(kk);
-                    elist[edge + 1] = tour->at(m);
-                    elen[edge_peso]	= distance->at( elist[edge] )[ elist[edge + 1] ].valor;
+                    elist[edge] = kk;
+                    elist[edge + 1] = m;
+                    elen[edge_peso]	= (int)distance->at( tour->at(kk) )[ tour->at(m) ].valor;
                     edge_peso++;
                     edge = edge + 2;
                 }
             }
         }
         out_tour = CC_SAFE_MALLOC (ncount, int);
+        if (!out_tour) {
+            cout<<"ERRO: TSP::solve - OUTTOUR MALLOC"<<endl;
+            cin.ignore();
+        }
         probname = CCtsp_problabel(" ");
+        if (!probname) {
+            cout<<"ERRO: TSP::solve - PROBNAME MALLOC"<<endl;
+            cin.ignore();
+        }
         rval = CCtsp_solve_sparse(ncount, ecount, elist, elen, in_tour,
                 out_tour, mybnd, &optval, &success, &foundtour, probname,
                 mytimebound, &hit_timebound, run_silently, &rstate);
-        for (int kk = 0; kk < ncount; kk++) {
-            tour->at(kk) = out_tour[kk];
+
+        vector<int> * tour_temp = new vector<int>();
+        *tour_temp = *tour;
+
+        for (int kk = 0; kk < tour->size(); kk++) {
+            tour->at(kk) = tour_temp->at( out_tour[kk] );
         }
         szeit = CCutil_zeit();
         CC_IFFREE (elist, int);
         CC_IFFREE (elen, int);
         CC_IFFREE (out_tour, int);
         CC_IFFREE (probname, char);
+        delete tour_temp;
     }else if( tour->size() == 4 ){
         //Tour for 4 elements
         minTour(tour);
