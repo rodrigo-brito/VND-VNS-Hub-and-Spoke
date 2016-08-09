@@ -6,6 +6,7 @@
 * Hub inicializado com o mais proximo de todos atraves de ordenamento de matriz
 */
 #define CYCLE_HUB
+#define STOP_OPTIMAL
 
 #include <iostream>
 #include <iomanip>
@@ -1012,10 +1013,12 @@ void VND(DATA * dados, solucao * s, solucao * s_star, double * FO_star) {
                     *s = *s_nova;
 
                     //se chegar na FO otima para
+                    #ifdef STOP_OPTIMAL
                     if (FO_depois <= dados->alvo + 0.1) {
 //                        cout<<"ALCAN�O OTIMO"<<endl;
                         break;
                     }
+                    #endif // STOP_OPTIMAL
                     vizinhanca = 1;
 
                 }else{
@@ -1038,10 +1041,12 @@ void VND(DATA * dados, solucao * s, solucao * s_star, double * FO_star) {
                     *s = *s_nova;
 
                     //se chegar na FO otima para
+                    #ifdef STOP_OPTIMAL
                     if (FO_depois <= dados->alvo + 0.1) {
 //                        cout<<"ALCAN�O OTIMO"<<endl;
                         break;
                     }
+                    #endif // STOP_OPTIMAL
                     vizinhanca = 1;
 
                 }else{
@@ -1063,10 +1068,12 @@ void VND(DATA * dados, solucao * s, solucao * s_star, double * FO_star) {
                     *s = *s_nova;
 
                     //se chegar na FO otima para
+                    #ifdef STOP_OPTIMAL
                     if (FO_depois <= dados->alvo + 0.1) {
 //                        cout<<"ALCAN�O OTIMO"<<endl;
                         break;
                     }
+                    #endif // STOP_OPTIMAL
                     vizinhanca = 1;
 
                 }else{
@@ -1089,10 +1096,12 @@ void VND(DATA * dados, solucao * s, solucao * s_star, double * FO_star) {
                         *s = *s_nova;
 
                         //se chegar na FO otima para
+                        #ifdef STOP_OPTIMAL
                         if (FO_depois <= dados->alvo + 0.1) {
 //                            cout<<"ALCAN�O OTIMO"<<endl;
                             break;
                         }
+                        #endif // STOP_OPTIMAL
                         vizinhanca = 1;
 
                     }else{
@@ -1128,19 +1137,19 @@ double Calcula_FO(DATA * dados, solucao *s) {
 				//}
 
         #ifdef CYCLE_HUB
-            for (int w = j + 1; w<s->alocacao.size(); w++){
-                FO = FO + dados->demanda[s->alocacao[j].id][s->alocacao[w].id] * dados->alpha *
-                    dados->distancia[s->alocacao[j].hub][s->alocacao[w].hub].valor +
-                    dados->demanda[s->alocacao[w].id][s->alocacao[j].id] * dados->alpha *
-                    tsp->getSubTourDistance(&s->hubs, s->alocacao[w].hub, s->alocacao[j].hub);//Caminho no sentido horário entre Nós
-            }
+        for (int w = j + 1; w<s->alocacao.size(); w++){
+            FO = FO + dados->demanda[s->alocacao[j].id][s->alocacao[w].id] * dados->alpha *
+                dados->distancia[s->alocacao[j].hub][s->alocacao[w].hub].valor +
+                dados->demanda[s->alocacao[w].id][s->alocacao[j].id] * dados->alpha *
+                tsp->getSubTourDistance(&s->hubs, s->alocacao[w].hub, s->alocacao[j].hub);//Caminho no sentido horário entre Nós
+        }
 		#else//custo entre os hubs (Hub Location Problem)
-            for (int w = j + 1; w<s->alocacao.size(); w++){
-                FO = FO + dados->demanda[s->alocacao[j].id][s->alocacao[w].id] * dados->alpha *
-                    dados->distancia[s->alocacao[j].hub][s->alocacao[w].hub].valor +
-                    dados->demanda[s->alocacao[w].id][s->alocacao[j].id] * dados->alpha *
-                    dados->distancia[s->alocacao[w].hub][s->alocacao[j].hub].valor; //Distância direta entre os dois HUBS
-            }
+        for (int w = j + 1; w<s->alocacao.size(); w++){
+            FO = FO + dados->demanda[s->alocacao[j].id][s->alocacao[w].id] * dados->alpha *
+                dados->distancia[s->alocacao[j].hub][s->alocacao[w].hub].valor +
+                dados->demanda[s->alocacao[w].id][s->alocacao[j].id] * dados->alpha *
+                dados->distancia[s->alocacao[w].hub][s->alocacao[j].hub].valor; //Distância direta entre os dois HUBS
+        }
 		#endif // CYCLE_HUB
 	}
 	return FO;
@@ -2243,11 +2252,13 @@ void VNS(DATA * dados, solucao * s, solucao * s_star, double * FO_star){
                     *s = *s_nova;
 
                     //se chegar na FO otima para
+                    #ifdef STOP_OPTIMAL
                     if (FO_depois <= dados->alvo + 0.1) {
                         cout<<"ALCANCOU OTIMO"<<endl;
                         vizinhanca = 5;
                         break;
                     }
+                    #endif // STOP_OPTIMAL
                     vizinhanca = 1;
                 }else{
                     vizinhanca = 2;
@@ -2270,11 +2281,13 @@ void VNS(DATA * dados, solucao * s, solucao * s_star, double * FO_star){
 
 
                     //se chegar na FO otima para
+                    #ifdef STOP_OPTIMAL
                     if (FO_depois <= dados->alvo + 0.1) {
                         cout<<"ALCANCOU OTIMO"<<endl;
                         vizinhanca = 5;
                         break;
                     }
+                    #endif // STOP_OPTIMAL
                     vizinhanca = 1;
                 }else{
                     vizinhanca = 3;
@@ -2298,11 +2311,13 @@ void VNS(DATA * dados, solucao * s, solucao * s_star, double * FO_star){
 
 
                     //se chegar na FO otima para
+                    #ifdef STOP_OPTIMAL
                     if (FO_depois <= dados->alvo + 0.1) {
                         cout<<"ALCANCOU OTIMO"<<endl;
                         vizinhanca = 5;
                         break;
                     }
+                    #endif // STOP_OPTIMAL
                     vizinhanca = 1;
                 }else{
                     vizinhanca = 4;
@@ -2325,20 +2340,24 @@ void VNS(DATA * dados, solucao * s, solucao * s_star, double * FO_star){
                     //nova solucao passa ser a atual
                     *s = *s_nova;
                     //se chegar na FO otima para
+                    #ifdef STOP_OPTIMAL
                     if (FO_depois <= dados->alvo + 0.1) {
                         cout<<"ALCANCOU OTIMO"<<endl;
                         vizinhanca = 5;
                         break;
                     }
+                    #endif // STOP_OPTIMAL
                     vizinhanca = 1;
                 }else{
                     vizinhanca = 5;
                 }
 		}
+		#ifdef STOP_OPTIMAL
 		if (FO_depois <= dados->alvo + 0.1) {
             cout<<"ALCANCOU OTIMO"<<endl;
             break;
         }
+        #endif // STOP_OPTIMAL
 	}
 	delete s_nova;
 }
