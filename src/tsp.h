@@ -21,6 +21,6 @@ class TSP {
         void solve( vector<int> * tour );
         double getCost( vector<int> * tour );
         void minTour( vector<int> * tour );
-        double getSubTourDistance( vector<int> * tour, int origin, int destiny );
+        double getSubTourDistance( vector<int> * tour, int origin, int destiny, bool inverse);
 };
 #endif

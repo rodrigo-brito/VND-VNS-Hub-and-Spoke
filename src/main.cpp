@@ -6,7 +6,7 @@
 * Hub inicializado com o mais proximo de todos atraves de ordenamento de matriz
 */
 #define CYCLE_HUB
-#define STOP_OPTIMAL
+//#define STOP_OPTIMAL
 
 #include <iostream>
 #include <iomanip>
@@ -54,6 +54,7 @@ void calcula_fluxo(DATA * dados);
 int partition(vector<celula>&, int, int);
 int quickSort(vector<celula>&, int, int);
 double Calcula_FO(DATA * dados, solucao *s);
+double Calcula_FO2(DATA * dados, solucao *s);
 
 //fun�oes de tempo
 void iniciarCronometro(DATA * dados);
@@ -167,7 +168,7 @@ void processarInstancias(vector < instancia > * instancias){
     solucao * s_star = new solucao; //melhor solu��o corrente
 
 
-    for(int i = 1; i< instancias->size(); i++){ //percorre toda as listas de instancias
+    for(int i = 0; i< instancias->size(); i++){ //percorre toda as listas de instancias
 		cout << "--Intancia "<<i<<"--" << endl;
         dados = new DATA; //aloca espa�o para pacote com informa��o da instancia
         arquivo = &instancias->at(i).arquivo[0];//recebe endere�o da instancia i
@@ -432,7 +433,7 @@ void salvarResultado(DATA * dados, double FO, solucao * s){
     FILE *arquivoSaida;
     arquivoSaida = fopen("hubs.txt","a");
     double gap = (FO - dados->alvo)/dados->alvo;
-    fprintf(arquivoSaida, "CIDADES=%d HUBS=%d TEMPO=%.4f FO=%18.4f OTIMO=%18.4f GAP=%3.4f\n", dados->nos, s->hubs.size(), dados->tempo, FO, dados->alvo, gap);
+    fprintf(arquivoSaida, "CIDADES=%d %.2f HUBS=%d TEMPO=%.4f FO=%18.4f OTIMO=%18.4f GAP=%3.4f\n", dados->nos, dados->alpha, s->hubs.size(), dados->tempo, FO, dados->alvo, gap);
     //fprintf(arquivoSaida, " -- CIDADES --\n");
     /*for(int i = 0; i < s->hubs.size(); i++){
         fprintf(arquivoSaida, dados->municipios[s->hubs[i]].c_str());
@@ -441,6 +442,10 @@ void salvarResultado(DATA * dados, double FO, solucao * s){
     //fprintf(arquivoSaida, " ---- \n\n");
     fclose(arquivoSaida);
     //salvarPlot(dados, s);
+    imprimeSolucao(s);
+    printf("FO = %18.4f\n", Calcula_FO2(dados, s));
+    //if(dados->nos == 20)
+    cin.ignore();
 }
 
 void salvarMensagem(int i){
@@ -1141,7 +1146,44 @@ double Calcula_FO(DATA * dados, solucao *s) {
             FO = FO + dados->demanda[s->alocacao[j].id][s->alocacao[w].id] * dados->alpha *
                 dados->distancia[s->alocacao[j].hub][s->alocacao[w].hub].valor +
                 dados->demanda[s->alocacao[w].id][s->alocacao[j].id] * dados->alpha *
-                tsp->getSubTourDistance(&s->hubs, s->alocacao[w].hub, s->alocacao[j].hub);//Caminho no sentido horário entre Nós
+                tsp->getSubTourDistance(&s->hubs, s->alocacao[w].hub, s->alocacao[j].hub, false);
+        }
+		#else//custo entre os hubs (Hub Location Problem)
+        for (int w = j + 1; w<s->alocacao.size(); w++){
+            FO = FO + dados->demanda[s->alocacao[j].id][s->alocacao[w].id] * dados->alpha *
+                dados->distancia[s->alocacao[j].hub][s->alocacao[w].hub].valor +
+                dados->demanda[s->alocacao[w].id][s->alocacao[j].id] * dados->alpha *
+                dados->distancia[s->alocacao[w].hub][s->alocacao[j].hub].valor; //Distância direta entre os dois HUBS
+        }
+		#endif // CYCLE_HUB
+	}
+	return FO;
+
+}
+
+double Calcula_FO2(DATA * dados, solucao *s) {
+
+	long double FO = 0;
+	for (int i = 0; i <s->hubs.size(); i++){
+		FO += dados->custoIntalacao[s->hubs[i]]; // total custo fixo de instala��o
+	}
+
+	for (int j = 0; j<s->alocacao.size(); j++){
+		//custo entre n� e seu hub
+		FO = FO + dados->distancia[s->alocacao[j].id][s->alocacao[j].hub].valor
+			* (dados->O[s->alocacao[j].id] + dados->D[s->alocacao[j].id]);
+				//TODO Perguntar o bruno sobre isso
+				//double dif = 2*dados->distancia[s->alocacao[j].id][s->alocacao[j].hub].valor - dados->T;
+				//if(dif>0){
+					//FO *= 100;
+				//}
+
+        #ifdef CYCLE_HUB
+        for (int w = j + 1; w<s->alocacao.size(); w++){
+            FO = FO + dados->demanda[s->alocacao[j].id][s->alocacao[w].id] * dados->alpha *
+                tsp->getSubTourDistance(&s->hubs, s->alocacao[j].hub, s->alocacao[w].hub, false) +
+                dados->demanda[s->alocacao[w].id][s->alocacao[j].id] * dados->alpha *
+                tsp->getSubTourDistance(&s->hubs, s->alocacao[w].hub, s->alocacao[j].hub, false);
         }
 		#else//custo entre os hubs (Hub Location Problem)
         for (int w = j + 1; w<s->alocacao.size(); w++){
@@ -1453,6 +1495,8 @@ void lerArquivo(DATA * dados, char * arquivo){
 	if (dados->nos < 70) ex = 1;
 	else if (dados->nos < 170) ex = 2;
 	else ex = 5;
+
+	ex = 0.7;
 
 	//pega matriz de custo fixo de instala��o F_kk
 	for (int i = 0; i < dados->nos; i++){
