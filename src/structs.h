@@ -44,6 +44,7 @@ struct DATA{
 	int nos; //quantidade de n�s da instancia trabalhada
 
 	double alpha;
+	double ex;
 
 	double peso_cf; //peso da penalidade do custo fixo de instala�ao
 	double peso_od; //peso da penalidade do O_i e D_i

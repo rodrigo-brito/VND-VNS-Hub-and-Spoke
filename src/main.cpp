@@ -74,6 +74,7 @@ void salvarResultado(DATA * dados, double FO, solucao * s);
 void salvarMensagem(int i);
 void lerInstacias(vector < instancia > * instancias, char * arquivo);
 
+void instanciaIndividual( char * instancia, double alpha, double ex );
 void processarInstancias(vector < instancia > * instancias);
 void processarGoogleMapsMinas(int numCidades, float a, float b);
 
@@ -113,6 +114,22 @@ void VNS_TROCA(DATA * dados, solucao * s, solucao * s_star, double * FO_star);
 void pertubar_JucaoSolucoes(DATA * dados, solucao * s);
 
 int main(int argc, char* argv[]){
+    char * instancia;
+    double alpha;
+    double ex = -1;
+    if(argc == 4){
+        instancia = argv[1];
+        alpha = atof(argv[2]);
+        ex = atof(argv[3]);
+    }else if(argc == 3){
+        instancia = argv[1];
+        alpha = atof(argv[2]);
+    }else{
+        cout<<"Parâmetros incorretos!"<<endl;
+        cout<<"Uso: ./executavel instancia alfa ex(ex é opcional)"<<endl;
+        cout<<"Ex: ./main instancia.txt 0.2 0.7"<<endl;
+        exit(EXIT_FAILURE);
+    }
 
     #ifdef CYCLE_HUB
         cout<<"Cycle Hub Location Problem - Single Allocation"<<endl;
@@ -122,30 +139,10 @@ int main(int argc, char* argv[]){
 
 
     srand((unsigned)time(0));
-
-    vector <instancia> * instancias = new vector <instancia>(); // vetor com endere�o e FO �timo das instancias
-
-	char * arquivo_instancias = "./dataset/ap_dataset.txt";
-	cout<<"DATASET"<<arquivo_instancias<<endl;
-
-    //l� arquivo de instancias e guarda no vetor de entradas
-	lerInstacias(instancias, arquivo_instancias);//arquivo com caminho da instancia e valor �timo
-    processarInstancias(instancias);
-    //processa vetor de entradas
-//    processarGoogleMapsMinas(10);
-//    processarGoogleMapsMinas(20);
-//    processarGoogleMapsMinas(30);
-//    processarGoogleMapsMinas(40);
-    //processarGoogleMapsMinas(atoi(argv[1]), alpha, T);
-    //processarGoogleMapsMinas(100);
-    //prociessarGoogleMapsMinas(200);
-    //processarGoogleMapsMinas(300);
-    //processarGoogleMapsMinas(400);
-    //processarGoogleMapsMinas(500);
-    //processarGoogleMapsMinas(23);
-
-	//system("PAUSE");
-	return 0;
+    //processa isntancias
+    instanciaIndividual(instancia, alpha, ex);
+    delete instancia;
+    return 0;
 }
 
 void zerarSolucao(solucao * s, int nos){
@@ -155,6 +152,72 @@ void zerarSolucao(solucao * s, int nos){
     s->hubs_bin.resize(0);
     s->hubs_bin.resize(nos,0);
 }
+
+void instanciaIndividual(char * instancia, double alpha, double ex){
+    DATA * dados; //estrutura temporia para armazenar os dados de cada instancia
+    solucao * s1 = new solucao; //solu��o tempor�ria
+    double * FO_star = new double; //melhor FO corrente da instancia
+    solucao * s_star = new solucao; //melhor solu��o corrente
+    dados = new DATA; //aloca espa�o para pacote com informa��o da instancia
+
+    cout<<instancia<<endl;
+    dados->alvo = 0;
+    dados->ex = ex;
+
+    //dados->numFixoHubs = 3;
+
+    //leitura de arquivo da instancia i
+    lerArquivo(dados, instancia);//pode passar ex
+    tsp = new TSP( &dados->distancia );
+
+    //definindo pesos para pontua��o no ordenamento dos hubs promissores
+    dados->peso_cf = dados->nos;
+    dados->peso_dist = 1; //estava 1.5
+    dados->peso_od = alpha;//estava 0
+    dados->alpha = alpha;
+
+    calcula_fluxo(dados); //separa O_i D_i
+
+    ordenaDistancia(dados);
+    ordenaDemanda(dados);
+    ordenaCustoInstalacao(dados);
+
+    penalizaNos(dados);//faz a contagem do ordenamento para pontuar penalidades
+
+    ordenaPenalidade(dados);//ordena para ver os mais promissores a se tornar hub
+
+    zerarSolucao(s1 , dados->nos);
+    zerarSolucao(s_star, dados->nos);
+    *FO_star = INF;
+
+    //inicia cronometro para contagem de tempo
+    iniciarCronometro(dados);
+
+    //GRASP Contrutivo
+    inicializaSolucao_(dados, s1);
+
+    *FO_star = Calcula_FO(dados, s1);
+    *s_star = *s1;
+
+    //VNS com pertuba��o de jun��o de solu��es
+    VNS_TROCA(dados, s1, s_star, FO_star);
+
+    //finaliza contagem de tempo
+    finalizarCronometro(dados);
+
+
+    double FO = Calcula_FO(dados, s1);
+
+    //salvando resultado em arquivo de saida
+    salvarResultado(dados,FO,s1);
+    delete tsp;
+    delete FO_star;
+    delete s_star;
+    delete dados;
+    delete s1;
+
+}
+
 
 void processarInstancias(vector < instancia > * instancias){
     DATA * dados; //estrutura temporia para armazenar os dados de cada instancia
@@ -386,6 +449,7 @@ void processarGoogleMapsMinas(int numCidades, float a, float b){
     cout<<"3 - Salvando resultado\n"<<endl;
     salvarResultado(dados_temp,FO,s1);
 
+    delete arquivo;
     delete dados_temp;
     delete FO_star;
     delete s_star;
@@ -433,7 +497,11 @@ void salvarResultado(DATA * dados, double FO, solucao * s){
     FILE *arquivoSaida;
     arquivoSaida = fopen("hubs.txt","a");
     double gap = (FO - dados->alvo)/dados->alvo;
-    fprintf(arquivoSaida, "CIDADES=%d %.2f HUBS=%d TEMPO=%.4f FO=%18.4f OTIMO=%18.4f GAP=%3.4f\n", dados->nos, dados->alpha, s->hubs.size(), dados->tempo, FO, dados->alvo, gap);
+    #ifdef CYCLE_HUB
+    fprintf(arquivoSaida, "NOS=%d %.2f HUBS=%d TEMPO=%.4f FO=%18.4f", dados->nos, dados->alpha, s->hubs.size(), dados->tempo, FO, dados->alvo, gap);
+    #else
+    fprintf(arquivoSaida, "NOS=%d %.2f HUBS=%d TEMPO=%.4f FO=%18.4f OTIMO=%18.4f GAP=%3.4f\n", dados->nos, dados->alpha, s->hubs.size(), dados->tempo, FO, dados->alvo, gap);
+    #endif // CYCLE_HUB
     //fprintf(arquivoSaida, " -- CIDADES --\n");
     /*for(int i = 0; i < s->hubs.size(); i++){
         fprintf(arquivoSaida, dados->municipios[s->hubs[i]].c_str());
@@ -443,8 +511,9 @@ void salvarResultado(DATA * dados, double FO, solucao * s){
     fclose(arquivoSaida);
     //salvarPlot(dados, s);
     imprimeSolucao(s);
-    printf("FO = %18.4f\n", Calcula_FO2(dados, s));
-    //if(dados->nos == 20)
+    printf("TEMPO = %.4f\n", dados->tempo);
+    printf("FO = %18.4f\n", Calcula_FO(dados, s));
+    if(dados->nos == 20)
     cin.ignore();
 }
 
@@ -1124,7 +1193,7 @@ void VND(DATA * dados, solucao * s, solucao * s_star, double * FO_star) {
 }
 
 
-double Calcula_FO(DATA * dados, solucao *s) {
+double Calcula_FO2(DATA * dados, solucao *s) {
 
 	long double FO = 0;
 	for (int i = 0; i <s->hubs.size(); i++){
@@ -1161,7 +1230,7 @@ double Calcula_FO(DATA * dados, solucao *s) {
 
 }
 
-double Calcula_FO2(DATA * dados, solucao *s) {
+double Calcula_FO(DATA * dados, solucao *s) {
 
 	long double FO = 0;
 	for (int i = 0; i <s->hubs.size(); i++){
@@ -1496,7 +1565,10 @@ void lerArquivo(DATA * dados, char * arquivo){
 	else if (dados->nos < 170) ex = 2;
 	else ex = 5;
 
-	ex = 0.7;
+	//Seta EX apenas se for passado na leitura
+    if(dados->ex != -1){
+        ex = dados->ex;
+    }
 
 	//pega matriz de custo fixo de instala��o F_kk
 	for (int i = 0; i < dados->nos; i++){
