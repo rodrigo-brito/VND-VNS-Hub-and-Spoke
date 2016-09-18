@@ -141,7 +141,6 @@ int main(int argc, char* argv[]){
     srand((unsigned)time(0));
     //processa isntancias
     instanciaIndividual(instancia, alpha, ex);
-    delete instancia;
     return 0;
 }
 
@@ -267,7 +266,9 @@ void processarInstancias(vector < instancia > * instancias){
         iniciarCronometro(dados);
 
         //GRASP Contrutivo
+        #ifdef DEBUG
         cout<<"1 - Contrucao GRASP"<<endl;
+        #endif // DEBUG
         inicializaSolucao_(dados, s1);
         //pertubar_JucaoSolucoes(dados, s1); //pertuba
         //inicializaSolucao(dados, s1);
@@ -292,8 +293,9 @@ void processarInstancias(vector < instancia > * instancias){
 //        VNS(dados, s1, s_star, FO_star);
 
         //VNS com pertuba��o de jun��o de solu��es
+        #ifdef DEBUG
         cout<<"2 - VNS - TROCA"<<endl;
-        VNS_TROCA(dados, s1, s_star, FO_star);
+        #endif // DEBUG
         //VND(dados, s1, s_star, FO_star);
 
         //finaliza contagem de tempo
@@ -309,7 +311,9 @@ void processarInstancias(vector < instancia > * instancias){
 //        cout<<"-----"<<endl;
 
         //salvando resultado em arquivo de saida
+        #ifdef DEBUG
         cout<<"3 - Salvando resultado\n"<<endl;
+        #endif // DEBUG
         salvarResultado(dados,FO,s1);
         delete tsp;
     }
@@ -403,8 +407,9 @@ void processarGoogleMapsMinas(int numCidades, float a, float b){
 		dados_temp->D[i] = daux;
 	}
 
-
+    #ifdef DEBUG
     cout<<"1 - Contrucao GRASP"<<endl;
+    #endif // DEBUG
     inicializaSolucao_(dados_temp, s1);
 
 
@@ -431,13 +436,16 @@ void processarGoogleMapsMinas(int numCidades, float a, float b){
 //        VNS(dados, s1, s_star, FO_star);
 
     //VNS com pertuba��o de jun��o de solu��es
+    #ifdef DEBUG
     cout<<"2 - VNS - TROCA"<<endl;
+    #endif // DEBUG
     VNS_TROCA(dados_temp, s1, s_star, FO_star);
 
     //finaliza contagem de tempo
     finalizarCronometro(dados_temp);
 
     double FO = Calcula_FO(dados_temp, s1);
+    #ifdef DEBUG
     printf("Custo (FO) = %18.4f \n", FO);
     //imprimeSolucao(s1);
 
@@ -447,6 +455,7 @@ void processarGoogleMapsMinas(int numCidades, float a, float b){
 
     //salvando resultado em arquivo de saida
     cout<<"3 - Salvando resultado\n"<<endl;
+    #endif // DEBUG
     salvarResultado(dados_temp,FO,s1);
 
     delete arquivo;
@@ -495,10 +504,10 @@ void salvarPlot(DATA * dados, solucao * s){
 void salvarResultado(DATA * dados, double FO, solucao * s){
 
     FILE *arquivoSaida;
-    arquivoSaida = fopen("hubs.txt","a");
+    arquivoSaida = fopen("results.txt","a");
     double gap = (FO - dados->alvo)/dados->alvo;
     #ifdef CYCLE_HUB
-    fprintf(arquivoSaida, "NOS=%d %.2f HUBS=%d TEMPO=%.4f FO=%18.4f", dados->nos, dados->alpha, s->hubs.size(), dados->tempo, FO, dados->alvo, gap);
+    fprintf(arquivoSaida, "NOS=%d %.2f HUBS=%d TEMPO=%.4f FO=%18.4f\n", dados->nos, dados->alpha, s->hubs.size(), dados->tempo, FO, dados->alvo, gap);
     #else
     fprintf(arquivoSaida, "NOS=%d %.2f HUBS=%d TEMPO=%.4f FO=%18.4f OTIMO=%18.4f GAP=%3.4f\n", dados->nos, dados->alpha, s->hubs.size(), dados->tempo, FO, dados->alvo, gap);
     #endif // CYCLE_HUB
@@ -510,11 +519,11 @@ void salvarResultado(DATA * dados, double FO, solucao * s){
     //fprintf(arquivoSaida, " ---- \n\n");
     fclose(arquivoSaida);
     //salvarPlot(dados, s);
-    imprimeSolucao(s);
-    printf("TEMPO = %.4f\n", dados->tempo);
-    printf("FO = %18.4f\n", Calcula_FO(dados, s));
-    if(dados->nos == 20)
-    cin.ignore();
+    #ifdef DEBUG
+        imprimeSolucao(s);
+        printf("TEMPO = %.4f\n", dados->tempo);
+        printf("FO = %18.4f\n", Calcula_FO(dados, s));
+    #endif // DEBUG
 }
 
 void salvarMensagem(int i){
@@ -539,7 +548,6 @@ void salvarResultado_antigo(DATA * dados, double FO){
 
 }
 void buscaLocal_DeslocamentoAlocacao(DATA * dados, solucao * s, solucao * s_star, double * FO_star){
-	cout<<"Busca local deslocamente de aloca��o"<<endl;
 	solucao * s_nova = new solucao;
 	*s_nova = *s;
 	double FO = *FO_star;
@@ -551,7 +559,6 @@ void buscaLocal_DeslocamentoAlocacao(DATA * dados, solucao * s, solucao * s_star
                 s_nova->alocacao.at(i).hub = s_nova->hubs.at(j); //aloca no atual no hub;
                 FO = Calcula_FO(dados, s_nova);
                 if(FO < *FO_star){
-                    cout<<"shift melhorada"<<endl;
                     *s = *s_nova;
                     *s_star = *s_nova;
                     *FO_star = FO;
@@ -626,13 +633,10 @@ void buscaLocal_AdicionaHub_(DATA * dados, solucao * s, solucao * s_star, double
 }
 
 void buscaLocal_AdicionaHub(DATA * dados, solucao * s, solucao * s_star, double * FO_star){
-    cout<<"Busca Local Adiciona Hub"<<endl;
-    cout<<"-----"<<endl;
     solucao * s_nova = new solucao; //variavel temporaria para testes
     *s_nova = *s; //faz copia da variavel original
     double FO = Calcula_FO(dados, s_nova);//Calcula FO da atual solucao
     double melhorFO = FO; //inicializa Melhor FO com FO atual
-    cout<<"FO ini = "<<FO<<endl;
 
     bool melhora = false; //verifica se houve melhora no processa
 
@@ -645,7 +649,6 @@ void buscaLocal_AdicionaHub(DATA * dados, solucao * s, solucao * s_star, double 
                 melhora = true;
                 melhorFO = FO;
                 *s = *s_nova;
-                cout<<"Add hub "<<n<<endl;
                 break;
             }else{//caso nao houver melhora, reseta a solu��o temporaria
                 *s_nova = *s;
@@ -656,7 +659,6 @@ void buscaLocal_AdicionaHub(DATA * dados, solucao * s, solucao * s_star, double 
         *s_star = *s_nova;
         *FO_star = melhorFO;
     }
-    printf("FO final = %18.4f \n", melhorFO);
     delete s_nova;
 }
 
@@ -693,12 +695,9 @@ void buscaLocal_RemoveHub_(DATA * dados, solucao * s, solucao * s_star, double *
     delete s_nova;
 }
 void buscaLocal_RemoveHub(DATA * dados, solucao * s, solucao * s_star, double * FO_star){
-    cout<<"Busca Local Remover Hub"<<endl;
-    cout<<"-----"<<endl;
     solucao * s_nova = new solucao;
     *s_nova = *s;
     double FO = Calcula_FO(dados, s_nova);
-    cout<<"FO ini = "<<FO<<endl;
 
     double melhorFO = FO;
     bool melhora = false;
@@ -712,7 +711,6 @@ void buscaLocal_RemoveHub(DATA * dados, solucao * s, solucao * s_star, double * 
                 melhora = true;
                 melhorFO = FO;
                 *s = *s_nova;
-                cout<<"Remove hub "<<n<<endl;
                 break;
             }else{//caso contrario, limpa solu��o
                 *s_nova = *s;
@@ -723,7 +721,6 @@ void buscaLocal_RemoveHub(DATA * dados, solucao * s, solucao * s_star, double * 
         *s_star = *s_nova;
         *FO_star = melhorFO;
     }
-    printf("FO final = %18.4f \n", melhorFO);
 
     delete s_nova;
 }
@@ -775,13 +772,9 @@ void buscaLocal_TrocaFuncao_(DATA * dados, solucao * s, solucao * s_star, double
 }
 
 void buscaLocal_HubPromissor_(DATA * dados, solucao * s, solucao * s_star, double * FO_star){
-	cout<<"Busca Local Hub Promissor"<<endl;
-    cout<<"-----"<<endl;
     solucao * s_nova = new solucao; //solucao temporaria para testar combinacoes
     *s_nova = *s;
     double FO = *FO_star; //computa fo inicial
-
-    printf("FO inicial = %18.4f \n", FO);
 
     vector<int> hubsPromissores;
     for(int i = 0; i<dados->nos; i++){
@@ -791,7 +784,6 @@ void buscaLocal_HubPromissor_(DATA * dados, solucao * s, solucao * s_star, doubl
             break;
         }
     }
-
 
     for (int i = 0; i < s_nova->hubs.size(); i++) {//percorre todos os hubs
         // hub � p s_nova->hubs[i]
@@ -808,9 +800,6 @@ void buscaLocal_HubPromissor_(DATA * dados, solucao * s, solucao * s_star, doubl
                 FO = Calcula_FO(dados, s_nova);
 
                 if(FO < *FO_star){//verifica se houve melhora para atualizar a solu��o
-                    cout<<"Troca --\n "<<hubsPromissores[j]<<" virou hub"<<endl;
-                    cout<<s_nova->hubs.at(i)<<" virou no"<<endl;
-
                     *s = *s_nova;
                     *s_star = *s_nova;
                     *FO_star = FO;
@@ -826,14 +815,11 @@ void buscaLocal_HubPromissor_(DATA * dados, solucao * s, solucao * s_star, doubl
 
 
 void buscaLocal_TrocaFuncao(DATA * dados, solucao * s, solucao * s_star, double * FO_star){
-	cout<<"Busca Local troca de funcao"<<endl;
-    cout<<"-----"<<endl;
     solucao * s_nova = new solucao; //solucao temporaria para testar combinacoes
     solucao * s_melhor = new solucao; //guarda a melhor solucao das combinacoes
     *s_nova = *s;
     double FO = Calcula_FO(dados, s_nova); //computa fo inicial
     double melhorFO = FO;
-    cout<<"FO ini = "<<FO<<endl;
 
     bool melhora = false;
 
@@ -849,8 +835,6 @@ void buscaLocal_TrocaFuncao(DATA * dados, solucao * s, solucao * s_star, double 
                     FO = Calcula_FO(dados, s_nova);
 
                     if(FO < melhorFO){//verifica se houve melhora para atualizar a solu��o
-                        cout<<"Troca --\n "<<n<<" virou hub"<<endl;
-                        cout<<j<<" virou no"<<endl;
                         melhora = true;
                         *s = *s_nova;
                         melhorFO = FO;
@@ -866,17 +850,13 @@ void buscaLocal_TrocaFuncao(DATA * dados, solucao * s, solucao * s_star, double 
         *s_star = *s_nova;
         *FO_star = melhorFO;
     }
-    printf("FO final = %18.4f \n", FO);
     delete s_nova;
 }
 //Busca local com melhor aprimorante
 void buscaLocal_Shift(DATA * dados, solucao * s, solucao * s_star, double * FO_star){
-    cout<<"Busca Local shift"<<endl;
-    cout<<"-----"<<endl;
     solucao * s_nova = new solucao;
     *s_nova = *s;
     double FO = Calcula_FO(dados, s_nova);
-    printf("FO inicial = %18.4f \n", FO);
 
     //melhores valores da rodada
     no melhorAlocacao;
@@ -904,7 +884,6 @@ void buscaLocal_Shift(DATA * dados, solucao * s, solucao * s_star, double * FO_s
 	        }
 	        //se houver uma solu��o melhor
 	        if(melhorHub != -1 && melhorFO < melhorAlocacaoFO){
-	        	cout<<"No "<<i<<" Aloca a "<<melhorHub<<endl;
 	        	//guarda as informa��es da melhor altera��o
 	        	melhorAlocacao.id = i;
 	        	melhorAlocacao.hub = melhorHub;
@@ -927,19 +906,13 @@ void buscaLocal_Shift(DATA * dados, solucao * s, solucao * s_star, double * FO_s
 	    }
     }
 
-
-
-    cout<<"FO final = "<<FO<<endl;
     delete s_nova;
 }
 //Busca local com primeira de melhora
 void buscaLocal_Shift_P(DATA * dados, solucao * s, solucao * s_star, double * FO_star){
-    cout<<"Busca Local shift - 1a Melhora"<<endl;
-    cout<<"-----"<<endl;
     solucao * s_nova = new solucao;
     *s_nova = *s;
     double melhorFO = Calcula_FO(dados, s_nova);
-    printf("FO Inicial = %18.4f \n", melhorFO);
 
     bool melhora = false; //registra se houve melhora na busca
 
@@ -951,7 +924,6 @@ void buscaLocal_Shift_P(DATA * dados, solucao * s, solucao * s_star, double * FO
                 double novaFO = Calcula_FO(dados, s_nova);//calcula FO
 
                 if(novaFO < melhorFO){//se melhorou ent�o troca
-                    cout<<"No "<<i<<" aloca a hub"<<j<<endl;
                     melhora = true;
                     *s = *s_nova;
                     melhorFO = novaFO;
@@ -1415,7 +1387,6 @@ void lerArquivoOrdemPib(DATA * dados, char * arquivo){
 	if (!entrada.is_open()){
 		cout << "Erro ao abrir o arquivo" << endl;
 		entrada.close();
-		system("pause");
 		exit(EXIT_FAILURE);
 	}
     int indice;
@@ -1453,14 +1424,9 @@ void gerarDemanda(DATA * dados){
                 //demanda = (popi * popj * (pibi * pibj) * expo)/9000;
                 demanda = (popi * popj * (pibi * pibj) * 1)/pow(distancia,2);
                 if(demanda < 0){
-                    cout<<"Pop i: "<<dados->populacao[i]<<endl;
-                    cout<<"Pop j: "<<dados->populacao[j]<<endl;
-                    cout<<"pib i: "<<dados->pib[i]<<endl;
-                    cout<<"pib j: "<<dados->pib[j]<<endl;
-                    cout<<"Dist: "<<distancia<<endl;
                     //cout<<"Exp: "<<exp(-0.001*distancia)<<endl;
                     cout<<"ERRO: Demanda = "<<demanda<<endl;
-                    cin.ignore();
+                    exit(EXIT_FAILURE);
                 }
                 dados->demanda[i][j] = demanda/10000;
                 //preenchendo matrizes de ordenamento
