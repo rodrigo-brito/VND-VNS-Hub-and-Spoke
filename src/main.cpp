@@ -6,6 +6,7 @@
 * Hub inicializado com o mais proximo de todos atraves de ordenamento de matriz
 */
 #define CYCLE_HUB
+#define GRASP_ILS
 //#define STOP_OPTIMAL
 
 #include <iostream>
@@ -74,7 +75,7 @@ void salvarResultado(DATA * dados, double FO, solucao * s);
 void salvarMensagem(int i);
 void lerInstacias(vector < instancia > * instancias, char * arquivo);
 
-void instanciaIndividual( char * instancia, double alpha, double ex );
+void instanciaIndividual( char * instancia, double alpha, double ex, int maxInter );
 void processarInstancias(vector < instancia > * instancias);
 void processarGoogleMapsMinas(int numCidades, float a, float b);
 
@@ -109,6 +110,7 @@ void VND(DATA * dados, solucao * s, solucao * s_star, double * FO_star);
 void VNS(DATA * dados, solucao * s, solucao * s_star, double * FO_star);
 void VNS_GRASP(DATA * dados, solucao * s, solucao * s_star, double * FO_star);
 void VNS_TROCA(DATA * dados, solucao * s, solucao * s_star, double * FO_star);
+void ILS(DATA * dados, solucao * s1, solucao * s_star, double * FO_star, int maxInter);
 
 //pertuba��es aleat�rias
 void pertubar_JucaoSolucoes(DATA * dados, solucao * s);
@@ -117,17 +119,23 @@ int main(int argc, char* argv[]){
     char * instancia;
     double alpha;
     double ex = -1;
-    if(argc == 4){
+    int maxIter = 0;
+    if(argc == 5){
         instancia = argv[1];
         alpha = atof(argv[2]);
         ex = atof(argv[3]);
-    }else if(argc == 3){
+        maxIter = atoi(argv[4]);
+    } else if (argc == 4){
         instancia = argv[1];
         alpha = atof(argv[2]);
-    }else{
+        ex = atof(argv[3]);
+    } else if (argc == 3){
+        instancia = argv[1];
+        alpha = atof(argv[2]);
+    } else {
         cout<<"Parâmetros incorretos!"<<endl;
-        cout<<"Uso: ./executavel instancia alfa ex(ex é opcional)"<<endl;
-        cout<<"Ex: ./main instancia.txt 0.2 0.7"<<endl;
+        cout<<"Uso: ./executavel instancia alfa ex maxIter (ex e maxIter são opcionais)"<<endl;
+        cout<<"Ex: ./main instancia.txt 0.2 0.7 50"<<endl;
         exit(EXIT_FAILURE);
     }
 
@@ -140,7 +148,7 @@ int main(int argc, char* argv[]){
 
     srand((unsigned)time(0));
     //processa isntancias
-    instanciaIndividual(instancia, alpha, ex);
+    instanciaIndividual(instancia, alpha, ex, maxIter);
     return 0;
 }
 
@@ -152,7 +160,7 @@ void zerarSolucao(solucao * s, int nos){
     s->hubs_bin.resize(nos,0);
 }
 
-void instanciaIndividual(char * instancia, double alpha, double ex){
+void instanciaIndividual(char * instancia, double alpha, double ex, int maxInter){
     DATA * dados; //estrutura temporia para armazenar os dados de cada instancia
     solucao * s1 = new solucao; //solu��o tempor�ria
     double * FO_star = new double; //melhor FO corrente da instancia
@@ -198,8 +206,12 @@ void instanciaIndividual(char * instancia, double alpha, double ex){
     *FO_star = Calcula_FO(dados, s1);
     *s_star = *s1;
 
-    //VNS com pertuba��o de jun��o de solu��es
-    VNS_TROCA(dados, s1, s_star, FO_star);
+    #ifdef GRASP_ILS
+        ILS(dados, s1, s_star, FO_star, maxInter);
+    #else
+        //VNS com pertuba��o de jun��o de solu��es
+        VNS_TROCA(dados, s1, s_star, FO_star);
+    #endif // GRASP_ILS
 
     //finaliza contagem de tempo
     finalizarCronometro(dados);
@@ -504,7 +516,7 @@ void salvarPlot(DATA * dados, solucao * s){
 void salvarResultado(DATA * dados, double FO, solucao * s){
 
     FILE *arquivoSaida;
-    arquivoSaida = fopen("results.txt","a");
+    arquivoSaida = fopen("output/results.txt","a");
     double gap = (FO - dados->alvo)/dados->alvo;
     #ifdef CYCLE_HUB
     fprintf(arquivoSaida, "NOS=%d %.2f HUBS=%d TEMPO=%.4f FO=%18.4f\n", dados->nos, dados->alpha, s->hubs.size(), dados->tempo, FO, dados->alvo, gap);
@@ -2267,7 +2279,6 @@ void VNS_TROCA(DATA * dados, solucao * s, solucao * s_star, double * FO_star){
 	int numIteracoes = 0;
 	while(numIteracoes<20){
         *s_nova = *s;
-        //cout<<"Iteracao = "<<numIteracoes<<endl;
         pertubar_trocaFuncao(dados, s_nova);//Troca fun��o de n�s
         VND(dados, s_nova, s_star, FO_star); //aplica busca local
 
@@ -2281,7 +2292,6 @@ void VNS_TROCA(DATA * dados, solucao * s, solucao * s_star, double * FO_star){
                 *FO_star = FO_depois;
                 *s_star = *s_nova;
             }
-            //cout<<"Iteracao = "<<numIteracoes;
             numIteracoes = 0;
         }else{
             VNS(dados, s_nova, s_star, FO_star);
@@ -2295,19 +2305,84 @@ void VNS_TROCA(DATA * dados, solucao * s, solucao * s_star, double * FO_star){
                     *FO_star = FO_depois;
                     *s_star = *s_nova;
                 }
-               // cout<<"Iteracao = "<<numIteracoes;
                 numIteracoes = 0;
             }else{
                 numIteracoes++;
             }
         }
         if (Calcula_FO(dados, s_nova) <= dados->alvo + 0.1) {
-           // system("PAUSE");
             break;
         }
 	}
 	*s = *s_star;
 	delete s_nova;
+}
+
+void ILS(DATA * dados, solucao * s, solucao * s_star, double * FO_star, int maxInter){
+
+    //Variáveis de apoio
+    solucao * s_nova = new solucao;
+    double FO_depois;
+	double FO_antes = Calcula_FO(dados, s);
+
+    if(maxInter <= 0){
+        cout << "ILS precisa de no minimo 1 iteracao para executar" << endl;
+        exit (EXIT_FAILURE);
+    }
+    for(int i = 0; i < maxInter; i++){
+        //Realiza sorteio para saber qual pertubação utilizar
+        int pertubacao = rand() % 3;
+
+        //Efetua copia temporária de solução
+        *s_nova = *s;
+        FO_antes = Calcula_FO(dados, s_nova);
+
+        //aplica pertubação sorteada
+        switch(pertubacao){
+            case 0:
+                pertubar_trocaFuncao(dados, s_nova);
+                pertubar_trocaFuncao(dados, s_nova);
+                pertubar_RemoveHub(dados, s_nova);
+            break;
+            case 1:
+                pertubar_trocaFuncao(dados, s_nova);
+                pertubar_trocaFuncao(dados, s_nova);
+                pertubar_trocaFuncao(dados, s_nova);
+                pertubar_trocaFuncao(dados, s_nova);
+                pertubar_trocaFuncao(dados, s_nova);
+                pertubar_AdicionaHub(dados, s_nova);
+            break;
+            case 2:
+                pertubar_trocaFuncao(dados, s_nova);
+                pertubar_trocaFuncao(dados, s_nova);
+                pertubar_trocaFuncao(dados, s_nova);
+                pertubar_trocaFuncao(dados, s_nova);
+                pertubar_trocaFuncao(dados, s_nova);
+                pertubar_trocaFuncao(dados, s_nova);
+                pertubar_trocaFuncao(dados, s_nova);
+                pertubar_AdicionaHub(dados, s_nova);
+                pertubar_AdicionaHub(dados, s_nova);
+                pertubar_AdicionaHub(dados, s_nova);
+                pertubar_RemoveHub(dados, s_nova);
+                pertubar_RemoveHub(dados, s_nova);
+            break;
+        }
+
+        //Aplica busca local
+        VND(dados, s_nova, s_star, FO_star);
+
+        FO_depois = Calcula_FO(dados, s_nova);//calcula nova FO
+        if (FO_depois < FO_antes) {//verifica se houve melhoria
+            //guarda nova FO
+            FO_antes = FO_depois;
+            //nova solucao passa ser a atual
+            *s = *s_nova;
+        }
+    }
+    if( Calcula_FO(dados, s) < Calcula_FO(dados, s_star) ){
+        *FO_star = Calcula_FO(dados, s_star);
+        *s_star = *s;
+    }
 }
 
 void VNS(DATA * dados, solucao * s, solucao * s_star, double * FO_star){
