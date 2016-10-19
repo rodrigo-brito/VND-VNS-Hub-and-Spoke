@@ -6,7 +6,7 @@
 * Hub inicializado com o mais proximo de todos atraves de ordenamento de matriz
 */
 #define CYCLE_HUB
-#define GRASP_ILS
+//#define GRASP_ILS
 //#define STOP_OPTIMAL
 
 #include <iostream>

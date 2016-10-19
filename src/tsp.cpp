@@ -117,18 +117,31 @@ void TSP::minTour( vector<int> * tour ){
     }
 }
 
+/**
+* Retorna a menor rota dentro do ciclo entre dois pontos dados
+*/
 double TSP::getSubTourDistance( vector<int> * tour, int origin, int destiny, bool inverse ){
     double distance_total = 0;
     double distance_total_reverse = 0;
     int index_origin = -1;
+    //Verifica se a origem existe no ciclo e encontra seu indice
     for (int i = 0; i < tour->size(); i++) {
         if(tour->at(i) == origin){
             index_origin = i;
             break;
         }
     }
+    //caso a origem exista
     if( index_origin != -1 ){
         int index_destiny = -1;
+
+        //Verifica situacoes onde não é formado um ciclo
+        if(origin == destiny){
+            return 0;
+        }else if( tour->size() == 2){
+            return distance->at( tour->at(0) )[ tour->at(1) ].valor;
+        }
+
         //cout<<"O="<<origin<<" D="<<destiny<<endl;
         //if(inverse){
             for (int i = tour->size()-1; i >= 0; i--) {
