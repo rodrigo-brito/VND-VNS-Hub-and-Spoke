@@ -114,6 +114,7 @@ void ILS(DATA * dados, solucao * s1, solucao * s_star, double * FO_star, int max
 
 //pertuba��es aleat�rias
 void pertubar_JucaoSolucoes(DATA * dados, solucao * s);
+void pertubar_AdicionaHub(DATA * dados, solucao * s);
 
 int main(int argc, char* argv[]){
     char * instancia;
@@ -201,6 +202,7 @@ void instanciaIndividual(char * instancia, double alpha, double ex, int maxInter
     iniciarCronometro(dados);
 
     //GRASP Contrutivo
+    cout<<"Inicializacao..."<<endl;
     inicializaSolucao_(dados, s1);
 
     *FO_star = Calcula_FO(dados, s1);
@@ -210,6 +212,7 @@ void instanciaIndividual(char * instancia, double alpha, double ex, int maxInter
         ILS(dados, s1, s_star, FO_star, maxInter);
     #else
         //VNS com pertuba��o de jun��o de solu��es
+        cout<<"VNS_TROCA..."<<endl;
         VNS_TROCA(dados, s1, s_star, FO_star);
     #endif // GRASP_ILS
 
@@ -686,7 +689,11 @@ void buscaLocal_RemoveHub_(DATA * dados, solucao * s, solucao * s_star, double *
     double novaFO = FO;
 
     for (int n = 0; n < dados->nos; n++) { //percorre todos os nos
+        #ifdef CYCLE_HUB
+		if (isHub(n, s_nova) && s_nova->hubs.size() > 3) { //se o n� for hub e tiver mais de um hub
+		#else
 		if (isHub(n, s_nova) && s_nova->hubs.size() > 1) { //se o n� for hub e tiver mais de um hub
+		#endif // CYCLE_HUB
             removeHub(n, s_nova);//remove da lista de hubs e desaloca
             alocarNos(dados, s_nova);//aloca nos ao mais proximo
             novaFO = Calcula_FO(dados, s_nova);//calcula FO
@@ -1052,7 +1059,6 @@ void VND(DATA * dados, solucao * s, solucao * s_star, double * FO_star) {
 	solucao * s_nova = new solucao;
 	double FO_depois;
 	double FO_antes = Calcula_FO(dados, s);
-
 	while (vizinhanca <= 4) { //explorando todas vizinhancas
 		switch (vizinhanca) {
             case 1:
@@ -1138,7 +1144,11 @@ void VND(DATA * dados, solucao * s, solucao * s_star, double * FO_star) {
                     vizinhanca++;
                 }
             case 4://Busca local - vizinhanca 4
+                #ifdef CYCLE_HUB
+                if(s->hubs.size() > 3){
+                #else
                 if(s->hubs.size() > 1){
+                #endif // CYCLE_HUB
                     *s_nova = *s; //reseta solucao
                     FO_antes = Calcula_FO(dados, s_nova);
 
@@ -1750,6 +1760,12 @@ void addHub(int no, solucao * s){
 }
 
 void removeHub(int no, solucao * s){
+    #ifdef CYCLE_HUB
+        if( s->hubs.size() <= 3 ){
+            cout<<"Erro: Tentou remover concentrador em ciclo de menos de 3 nós."<<endl;
+            exit (EXIT_FAILURE);
+        }
+    #endif // CYCLE_HUB
 	if(isHub(no, s)){
 		for(int i = 0; i<s->hubs.size(); i++){
 			if(s->hubs[i] == no){ //busca sequencial
@@ -1766,13 +1782,14 @@ void removeHub(int no, solucao * s){
 	}else{
         cout<<"Erro: Tentou remover no concentrador nao configurado."<<endl;
         exit (EXIT_FAILURE);
+        cin.ignore();
 	}
 }
 
 void trocarAlocacao(int hub, int no, solucao * s){
     if(isHub(hub, s) && !isHub(no, s)){//verificando se a troca � feita entre um concentrador e um n�o concentrador
-        removeHub(hub, s);
         addHub(no, s);
+        removeHub(hub, s);
         for(int i = 0; i < s->hubs.size(); i++){
             if(s->hubs[i] == hub){
                 s->hubs[i] = no;
@@ -1857,46 +1874,44 @@ void inicializaSolucao_(DATA * dados, solucao * s){
         //enquanto tiver solu��es em L
         do{
             custoMarginalMax = -DBL_MAX;
-            custoMarginalMin = 0;
+            custoMarginalMin = DBL_MAX;
             for(int j = 0; j < dados->nos; j++){ //percorre os N nos a serem testados
-                custoMarginal[j] = 0;
+                custoMarginal[j] = DBL_MAX;
                 *s_nova = *solucoes.at(n); //armazena a solu��o inicial em variavel temporaria
                 if(!isHub(j, s_nova) && NL_bin[j] == 0){// se n�o for hub da solu��o e n�o estar em NL
 
                     addHub(j, s_nova); //adiciona hub na solu��o temporaria
                     alocarNos(dados, s_nova); //aloca nos ao hub mais proximo
                     FO_nova = Calcula_FO(dados, s_nova);
-//                    imprimeSolucao(s_nova);
-//                    cout<<"FO Nova = "<<FO_nova<<endl;
                     custoMarginal[j] = FO_nova - FO_solucoes.at(n); //calculo do custo marginal
-                    if(custoMarginal[j] < 0){
+                    if(custoMarginal[j] < custoMarginalMin){
+                        custoMarginalMin = custoMarginal[j];
+                    }
+                    if(custoMarginal[j] > custoMarginalMax){
+                        custoMarginalMax = custoMarginal[j];
+                    }
+                    if(custoMarginal[j] < 0 || solucoes.at(n)->hubs.size() < 3){
                         NL_bin[j] = 0;
-                        if(custoMarginal[j] < custoMarginalMin){
-                            custoMarginalMin = custoMarginal[j];
-                        }
-                        if(custoMarginal[j] > custoMarginalMax){
-                            custoMarginalMax = custoMarginal[j];
-                        }
                     }else{
-                       NL_bin[j] = 1;//caso houver piora, ele � adicionado ao NL
+                        NL_bin[j] = 1;//caso houver piora, ele � adicionado ao NL
                     }
                 }
             }
             //Limpa a lista L para cria��o de nova lista a partir dos custos marginais capiturados
             L.clear();
+            #ifdef CYCLE_HUB
+            if(custoMarginalMin < 0 || solucoes.at(n)->hubs.size() < 3){
+            #else
             if(custoMarginalMin < 0){//se houve melhoria em algum caso, procede
+            #endif // CYCLE_HUB
                 double margem = custoMarginalMin + lambida*(custoMarginalMax - custoMarginalMin); //calcula a margem para compara��o
-//                cout<<"MARGEM = "<<margem<<endl;
-//                cout<<"CM Min = "<<custoMarginalMin<<endl;
-//                cout<<"CM Max = "<<custoMarginalMax<<endl;
                 for(int j = 0; j < dados->nos; j++){
 //                    cout<<"No "<<j<<" = "<<custoMarginal[j]<<endl;
-                    if((custoMarginal[j] < 0) && (custoMarginal[j] <= margem)){//se houve melhoria e est� dentro da margem
+                    if((custoMarginal[j] < 0 || solucoes.at(n)->hubs.size() < 3) && (custoMarginal[j] <= margem)){//se houve melhoria e est� dentro da margem
 //                        cout<<"No "<<j<<" aceito"<<endl;
                         L.push_back(j);//nesse caso � incluso nos hubs para sorteio
                     }
                 }
-
             }
 
             if(L.size()>0){//se a lista n�o estiver vazia, � feito um sorteio dos itens dentro da margem
@@ -1905,8 +1920,6 @@ void inicializaSolucao_(DATA * dados, solucao * s){
                 addHub(L.at(noSorteiado), solucoes.at(n));
                 alocarNos(dados, solucoes.at(n));
                 FO_solucoes[n] = Calcula_FO(dados, solucoes.at(n)); //atualiza a FO da solu��o
-//                cout<<"ADD NO "<<noSorteiado<<" FO = "<<FO_solucoes[n]<<endl;
-//                cin.ignore();
 
             }
             //caso ela for a melhor at� o momento, ela � armazenada
@@ -1930,6 +1943,9 @@ void inicializaSolucao_(DATA * dados, solucao * s){
 
     }
     *s = *melhorSolucao;
+    while(s->hubs.size() < 3){
+        pertubar_AdicionaHub(dados, s);
+    }
 //    cout<<"FO = "<<melhorFO<<endl;
 //    imprimeSolucao(s);
 //    ordenaPromissoresGRASP(dados);
@@ -2058,7 +2074,11 @@ void penalizaNos(DATA * dados){
 }
 
 void pertubar_RemoveHub(DATA * dados, solucao * s){
+    #ifdef CYCLE_HUB
+    if(s->hubs.size() > 3){
+    #else
     if(s->hubs.size() > 1){
+    #endif // CYCLE_HUB
         int hub_sorteio = s->hubs.at( sorteioPosicao(0,s->hubs.size()) ); //seleciona um hub aleatorio
         removeHub(hub_sorteio, s);//remove hub sorteado
         alocarNos(dados, s);//aloca ao mais proximo
@@ -2390,7 +2410,7 @@ void VNS(DATA * dados, solucao * s, solucao * s_star, double * FO_star){
 	solucao * s_nova = new solucao;
 	double FO_depois;
 	double FO_antes = Calcula_FO(dados, s);
-
+    cout<<"VNS..."<<endl;
 	while (vizinhanca <= 4) { //explorando todas vizinhancas
 		switch (vizinhanca) {
             case 1:
