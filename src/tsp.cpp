@@ -184,3 +184,67 @@ double TSP::getSubTourDistance( vector<int> * tour, int origin, int destiny, boo
     else
         return distance_total;
 }
+
+
+vector<int> TSP::getEdges( vector<int> * tour, int origin, int destiny ){
+    double distance_total = 0;
+    double distance_total_reverse = 0;
+    int index_origin = -1;
+    //Verifica se a origem existe no ciclo e encontra seu indice
+    for (int i = 0; i < tour->size(); i++) {
+        if(tour->at(i) == origin){
+            index_origin = i;
+            break;
+        }
+    }
+
+    vector<int> caminho_primario;
+    vector<int> caminho_alternativo;
+    //caso a origem exista
+    if( index_origin != -1 ){
+        int index_destiny = -1;
+
+        //Verifica situacoes onde não é formado um ciclo
+        if(origin == destiny){
+            vector<int> v;
+            return v;
+        }
+
+        for (int i = tour->size()-1; i >= 0; i--) {
+            int index_search = (i + index_origin+1) % tour->size();//Posição atual, % faz indice ter referencia circular
+            int nex_position = (i + index_origin) % tour->size();//Seguindo o círculo, qual a proxima posição
+            if( tour->at(index_search) != destiny ){//Enquanto não encontrar o destino, soma a distancia até o próximo nó
+                distance_total_reverse += distance->at( tour->at(index_search) )[ tour->at(nex_position) ].valor;
+                caminho_primario.push_back(nex_position);
+            }else{ //Se encontrou para
+                index_destiny = index_search;
+                break;
+            }
+        }
+
+        index_destiny = -1;
+        for (int i = 0; i < tour->size(); i++) {
+            int index_search = (i + index_origin) % tour->size();//Posição atual, % faz indice ter referencia circular
+            int nex_position = (i + index_origin + 1) % tour->size();//Seguindo o círculo, qual a proxima posição
+            if( tour->at(index_search) != destiny ){//Enquanto não encontrar o destino, soma a distancia até o próximo nó
+                distance_total += distance->at( tour->at(index_search) )[ tour->at(nex_position) ].valor;
+                caminho_alternativo.push_back(index_search);
+            }else{ //Se encontrou para
+                index_destiny = index_search;
+                break;
+            }
+        }
+
+        if( index_destiny == -1 ){//Se retornar -1 não encontrou nada, ERRO de inconsistência de busca
+            cout<<"ERRO: TSP::getSubTourDistance(search) DEST "<<destiny<<" not found!"<<endl;
+            exit (EXIT_FAILURE);
+        }
+    }else{//Se retornar -1 não encontrou nada, ERRO de inconsistência de busca
+        cout<<"ERRO: TSP::getSubTourDistance(search) ORG "<<origin<<" not found!"<<endl;
+        exit (EXIT_FAILURE);
+    }
+    if( distance_total_reverse < distance_total )
+        return caminho_primario;
+    else
+        return caminho_alternativo;
+}

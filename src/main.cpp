@@ -37,6 +37,7 @@ void imprimeDATA(DATA * dados);
 void imprimeVetor(vector < vector<double> >, DATA * dados);
 void imprimeVetor(vector < vector<int> >, DATA * dados);
 void imprimeSolucao(solucao * s);
+void imprimeFluxoArestas(DATA * dados, solucao * s);
 void imprimirCidades(DATA * dados, solucao * s);
 void ordenaDistancia(DATA * dados);
 void ordenaDemanda(DATA * dados);
@@ -136,6 +137,7 @@ int main(int argc, char* argv[]){
     } else {
         cout<<"Parâmetros incorretos!"<<endl;
         cout<<"Uso: ./executavel instancia alfa ex maxIter (ex e maxIter são opcionais)"<<endl;
+        cout<<"maxIter = Maximo de iteracoes do ILS, caso seja utilizado"<<endl;
         cout<<"Ex: ./main instancia.txt 0.2 0.7 50"<<endl;
         exit(EXIT_FAILURE);
     }
@@ -202,7 +204,6 @@ void instanciaIndividual(char * instancia, double alpha, double ex, int maxInter
     iniciarCronometro(dados);
 
     //GRASP Contrutivo
-    cout<<"Inicializacao..."<<endl;
     inicializaSolucao_(dados, s1);
 
     *FO_star = Calcula_FO(dados, s1);
@@ -212,7 +213,6 @@ void instanciaIndividual(char * instancia, double alpha, double ex, int maxInter
         ILS(dados, s1, s_star, FO_star, maxInter);
     #else
         //VNS com pertuba��o de jun��o de solu��es
-        cout<<"VNS_TROCA..."<<endl;
         VNS_TROCA(dados, s1, s_star, FO_star);
     #endif // GRASP_ILS
 
@@ -221,6 +221,8 @@ void instanciaIndividual(char * instancia, double alpha, double ex, int maxInter
 
 
     double FO = Calcula_FO(dados, s1);
+
+    imprimeFluxoArestas(dados, s1);
 
     //salvando resultado em arquivo de saida
     salvarResultado(dados,FO,s1);
@@ -1261,6 +1263,76 @@ double Calcula_FO(DATA * dados, solucao *s) {
 
 }
 
+void imprimeFluxoArestas(DATA * dados, solucao * s){
+    imprimeSolucao(s);
+    FILE *arquivoSaida;
+    arquivoSaida = fopen("output/fluxo.txt","a");
+    fprintf(arquivoSaida, "----------------\n");
+    fprintf(arquivoSaida, "N = %d ALFA = %.2f\n", dados->nos, dados->alpha);
+    fprintf(arquivoSaida, "----------------\n");
+    fprintf(arquivoSaida, "-- Alocacoes ---\n");
+    #ifdef CYCLE_HUB
+        vector<double> arestas( s->hubs.size() , 0);
+        cout << "-- FLUXO: Arestas Alocacao --"<<endl;
+        for (int j = 0; j<s->alocacao.size(); j++){
+            //Fluxo entre no nao-concentrador e hub
+            cout << s->alocacao[j].id << " " << s->alocacao[j].hub << " " << dados->O[s->alocacao[j].id] + dados->D[s->alocacao[j].id] << endl;
+            fprintf(arquivoSaida, "%d %d %.4f\n", s->alocacao[j].id+1, s->alocacao[j].hub+1, dados->O[s->alocacao[j].id] + dados->D[s->alocacao[j].id]);
+
+            //Quantidade de arestas e a mesma que a quantidade de concentradores
+            for (int w = j + 1; w<s->alocacao.size(); w++){
+                //Fluxo de ida
+                vector<int> arestas_percorridas_origem = tsp->getEdges( &s->hubs, s->alocacao[j].hub, s->alocacao[w].hub );
+                for(int k = 0; k < arestas_percorridas_origem.size(); k++){
+                    arestas.at(arestas_percorridas_origem.at(k)) += dados->demanda[s->alocacao[j].id][s->alocacao[w].id];
+                }
+                //Fluxo de volta
+                vector<int> arestas_percorridas_destino = tsp->getEdges( &s->hubs, s->alocacao[w].hub, s->alocacao[j].hub );
+                for(int k = 0; k < arestas_percorridas_destino.size(); k++){
+                    arestas.at(arestas_percorridas_destino.at(k)) += dados->demanda[s->alocacao[w].id][s->alocacao[j].id];
+                }
+            }
+        }
+
+        cout << "-- FLUXO: Anel concentradores" << endl;
+        fprintf(arquivoSaida, "-- Concentradores ---\n");
+        for( int m = 0; m < arestas.size(); m++ ){
+            if(m == arestas.size() - 1){
+                cout << s->hubs.at(m) <<" "<< s->hubs.at(0)<<" "<<arestas.at(m)<<endl;
+                fprintf(arquivoSaida, "%d %d %.4f\n", s->hubs.at(m)+1, s->hubs.at(0)+1, arestas.at(m));
+            }else{
+                cout << s->hubs.at(m) <<" "<< s->hubs.at(m+1)<<" "<<arestas.at(m)<<endl;
+                fprintf(arquivoSaida, "%d %d %.4f\n", s->hubs.at(m)+1, s->hubs.at(m+1)+1, arestas.at(m));
+            }
+        }
+    #else
+        vector< vector<double> > arestas( dados->nos ,  vector<double>(dados->nos, 0) );
+
+        cout << "-- FLUXO: Arestas Alocacao --"<<endl;
+        for (int j = 0; j<s->alocacao.size(); j++){
+            //Fluxo entre no nao-concentrador e hub
+            cout << s->alocacao[j].id << " " << s->alocacao[j].hub << " " << dados->O[s->alocacao[j].id] + dados->D[s->alocacao[j].id] << endl;
+            fprintf(arquivoSaida, "%d %d %.4f\n", s->alocacao[j].id+1, s->alocacao[j].hub+1, dados->O[s->alocacao[j].id] + dados->D[s->alocacao[j].id]);
+
+            //Quantidade de arestas e a mesma que a quantidade de concentradores
+            for (int w = j + 1; w<s->alocacao.size(); w++){
+                arestas[ s->alocacao[j].hub ][ s->alocacao[w].hub ] += dados->demanda[s->alocacao[j].id][s->alocacao[w].id];
+                arestas[ s->alocacao[j].hub ][ s->alocacao[w].hub ] += dados->demanda[s->alocacao[w].id][s->alocacao[j].id];
+            }
+        }
+
+        cout << "-- FLUXO: Anel concentradores" << endl;
+        fprintf(arquivoSaida, "-- Concentradores ---");
+        for( int m = 0; m < s->hubs.size(); m++ ){
+            for( int n = m+1; n < s->hubs.size(); n++ ){
+                cout << s->hubs.at(m) <<" "<< s->hubs.at(n)<<" "<<arestas[m][n]+arestas[n][m]<<endl;
+                fprintf(arquivoSaida, "%d %d %.4f\n", s->hubs.at(m)+1, s->hubs.at(n), arestas[m][n]+arestas[n][m]);
+            }
+        }
+    #endif // CYCLE_HUB
+    fclose(arquivoSaida);
+}
+
 void imprimeSolucao(solucao * s){
 	cout << "Hubs = ";
 	for (int i = 0; i<s->hubs.size(); i++){
@@ -1874,7 +1946,11 @@ void inicializaSolucao_(DATA * dados, solucao * s){
         //enquanto tiver solu��es em L
         do{
             custoMarginalMax = -DBL_MAX;
+            #ifdef CYCLE_HUB
             custoMarginalMin = DBL_MAX;
+            #else
+            custoMarginalMin = 0;
+            #endif // CYCLE_HUB
             for(int j = 0; j < dados->nos; j++){ //percorre os N nos a serem testados
                 custoMarginal[j] = DBL_MAX;
                 *s_nova = *solucoes.at(n); //armazena a solu��o inicial em variavel temporaria
@@ -1884,13 +1960,13 @@ void inicializaSolucao_(DATA * dados, solucao * s){
                     alocarNos(dados, s_nova); //aloca nos ao hub mais proximo
                     FO_nova = Calcula_FO(dados, s_nova);
                     custoMarginal[j] = FO_nova - FO_solucoes.at(n); //calculo do custo marginal
-                    if(custoMarginal[j] < custoMarginalMin){
-                        custoMarginalMin = custoMarginal[j];
-                    }
-                    if(custoMarginal[j] > custoMarginalMax){
-                        custoMarginalMax = custoMarginal[j];
-                    }
                     if(custoMarginal[j] < 0 || solucoes.at(n)->hubs.size() < 3){
+                        if(custoMarginal[j] < custoMarginalMin){
+                            custoMarginalMin = custoMarginal[j];
+                        }
+                        if(custoMarginal[j] > custoMarginalMax){
+                            custoMarginalMax = custoMarginal[j];
+                        }
                         NL_bin[j] = 0;
                     }else{
                         NL_bin[j] = 1;//caso houver piora, ele � adicionado ao NL
@@ -1906,9 +1982,11 @@ void inicializaSolucao_(DATA * dados, solucao * s){
             #endif // CYCLE_HUB
                 double margem = custoMarginalMin + lambida*(custoMarginalMax - custoMarginalMin); //calcula a margem para compara��o
                 for(int j = 0; j < dados->nos; j++){
-//                    cout<<"No "<<j<<" = "<<custoMarginal[j]<<endl;
-                    if((custoMarginal[j] < 0 || solucoes.at(n)->hubs.size() < 3) && (custoMarginal[j] <= margem)){//se houve melhoria e est� dentro da margem
-//                        cout<<"No "<<j<<" aceito"<<endl;
+                    #ifdef CYCLE_HUB
+                    if((custoMarginal[j] < 0 || solucoes.at(n)->hubs.size() < 3) && (custoMarginal[j] <= margem)){//se houve melhoria ou tiver menos que 3 hubs
+                    #else
+                    if((custoMarginal[j] < 0) && (custoMarginal[j] <= margem)){//se houver melhoria dentro da margem
+                    #endif // CYCLE_HUB
                         L.push_back(j);//nesse caso � incluso nos hubs para sorteio
                     }
                 }
@@ -1927,33 +2005,14 @@ void inicializaSolucao_(DATA * dados, solucao * s){
                 melhorFO = FO_solucoes[n];
                 *melhorSolucao = *solucoes.at(n);
             }
-            //if (FO_solucoes[n] <= dados->alvo + 0.1) {
-//                cout<<"Alcancou otimo"<<endl;
-             //   break;
-            //}
-//            imprimeSolucao(solucoes[n]);
-//            cout<<"FO = "<<FO_solucoes[n]<<endl;
-//            cout<<"MELHOR = "<<melhorFO<<endl;
-//            cin.ignore();
         }while(L.size() > 0);
-        //if (melhorFO <= dados->alvo + 0.1) {
-//            cout<<"Alcancou otimo"<<endl;
-            //break;
-        //}
-
     }
     *s = *melhorSolucao;
+    #ifdef CYCLE_HUB
     while(s->hubs.size() < 3){
         pertubar_AdicionaHub(dados, s);
     }
-//    cout<<"FO = "<<melhorFO<<endl;
-//    imprimeSolucao(s);
-//    ordenaPromissoresGRASP(dados);
-//    for (int i = 0; i<6; i++){
-//        int indice = dados->nos - 1 - i;
-//        cout<<"No "<<dados->hubsPromissoresGrasp[indice].id<<" - "<<dados->hubsPromissoresGrasp[indice].valor<<endl;
-//	}
-//	cin.ignore();
+    #endif // CYCLE_HUB
     for(int i = 0; i<solucoes.size(); i++){
         delete solucoes[i];
     }
@@ -2410,7 +2469,6 @@ void VNS(DATA * dados, solucao * s, solucao * s_star, double * FO_star){
 	solucao * s_nova = new solucao;
 	double FO_depois;
 	double FO_antes = Calcula_FO(dados, s);
-    cout<<"VNS..."<<endl;
 	while (vizinhanca <= 4) { //explorando todas vizinhancas
 		switch (vizinhanca) {
             case 1:

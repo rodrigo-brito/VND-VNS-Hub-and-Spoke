@@ -22,5 +22,6 @@ class TSP {
         double getCost( vector<int> * tour );
         void minTour( vector<int> * tour );
         double getSubTourDistance( vector<int> * tour, int origin, int destiny, bool inverse);
+        vector<int> getEdges( vector<int> * tour, int origin, int destiny);
 };
 #endif
