@@ -5,7 +5,7 @@
 * Aplica��o de Heur�stica Construtiva
 * Hub inicializado com o mais proximo de todos atraves de ordenamento de matriz
 */
-#define CYCLE_HUB
+//#define CYCLE_HUB
 //#define GRASP_ILS
 //#define STOP_OPTIMAL
 
@@ -1266,6 +1266,7 @@ double Calcula_FO(DATA * dados, solucao *s) {
 void imprimeFluxoArestas(DATA * dados, solucao * s){
     imprimeSolucao(s);
     FILE *arquivoSaida;
+    printf("FO = %.4f\n", Calcula_FO(dados, s));
     arquivoSaida = fopen("output/fluxo.txt","a");
     fprintf(arquivoSaida, "----------------\n");
     fprintf(arquivoSaida, "N = %d ALFA = %.2f\n", dados->nos, dados->alpha);
@@ -1320,13 +1321,12 @@ void imprimeFluxoArestas(DATA * dados, solucao * s){
                 arestas[ s->alocacao[j].hub ][ s->alocacao[w].hub ] += dados->demanda[s->alocacao[w].id][s->alocacao[j].id];
             }
         }
-
         cout << "-- FLUXO: Anel concentradores" << endl;
-        fprintf(arquivoSaida, "-- Concentradores ---");
+        fprintf(arquivoSaida, "-- Concentradores ---\n");
         for( int m = 0; m < s->hubs.size(); m++ ){
             for( int n = m+1; n < s->hubs.size(); n++ ){
-                cout << s->hubs.at(m) <<" "<< s->hubs.at(n)<<" "<<arestas[m][n]+arestas[n][m]<<endl;
-                fprintf(arquivoSaida, "%d %d %.4f\n", s->hubs.at(m)+1, s->hubs.at(n), arestas[m][n]+arestas[n][m]);
+                cout << s->hubs.at(m)+1<<" "<< s->hubs.at(n)+1<<" "<<arestas[s->hubs.at(m)][s->hubs.at(n)]+arestas[s->hubs.at(n)][s->hubs.at(m)]<<endl;
+                fprintf(arquivoSaida, "%d %d %.4f\n", s->hubs.at(m)+1, s->hubs.at(n)+1, arestas[s->hubs.at(m)][s->hubs.at(n)]+arestas[s->hubs.at(n)][s->hubs.at(m)]);
             }
         }
     #endif // CYCLE_HUB
